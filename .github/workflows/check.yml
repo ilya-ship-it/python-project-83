@@ -3,25 +3,26 @@ name: Python CI
 on:
     - push
     - pull_request
-  
+
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        # we want to test our package on several versions of Python
+        python-version: [3.8, 3.9]
     steps:
-    - uses: actions/checkout@v3
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: 3.10
-
-    - name: Install dependencies
-      run: |
-        pip install uv
-        make install
-
-    - name: Lint with flake8
-      run: |
-        make lint
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+        # make depends on uv
+      - name: Install dependencies
+        run: |
+          pip install uv
+          make install
+      - name: Run linter
+        run: |
+          make lint
