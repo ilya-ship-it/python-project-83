@@ -12,8 +12,6 @@ load_dotenv()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 DATABASE_URL = os.getenv('DATABASE_URL')
-print(DATABASE_URL)
-print('pfasfasfas')
 
 @app.route('/')
 def index():
@@ -47,7 +45,7 @@ def show_url(url_id):
         return render_template('url.html', url=url)
     return redirect(url_for('list_urls'))
 
-@app.route('/urls')
+@app.route('/urls', methods=['GET'])
 def list_urls():
     with psycopg2.connect(DATABASE_URL) as conn:
         with conn.cursor() as cur:
