@@ -29,19 +29,25 @@
       <h1>Сайты</h1>
 
       <div class="table-responsive">
-        <table data-test="urls">
+        <table class="table table-bordered table-hover text-nowrap" data-test="urls">
+          <thead>
           <tr>
             <th>ID</th>
             <th>Имя</th>
             <th>Последняя проверка</th>
+            <th>Код ответа</th>
           </tr>
-          {% for url_id, name, created_at in urls %}
+        </thead>
+        <tbody>
+          {% for id, name, created_at, status_code in urls %}
           <tr>
             <td>{{ id }}</td>
-            <td><a href="{{ url_for('show_url', url_id=url_id) }}">{{ name }}</a></td>
+            <td><a href="{{ url_for('show_url', id=id) }}">{{ name }}</a></td>
             <td>{{ created_at }}</td>
+            <td>{{ status_code }}</td>
           </tr>
           {% endfor %}
+        </tbody>
         </table>
       </div>
     </div>
