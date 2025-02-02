@@ -35,10 +35,10 @@
             <th>Имя</th>
             <th>Последняя проверка</th>
           </tr>
-          {% for id, name, created_at in urls %}
+          {% for url_id, name, created_at in urls %}
           <tr>
             <td>{{ id }}</td>
-            <td><a href="{{ url_for('show_url', id=id) }}">{{ name }}</a></td>
+            <td><a href="{{ url_for('show_url', url_id=url_id) }}">{{ name }}</a></td>
             <td>{{ created_at }}</td>
           </tr>
           {% endfor %}
