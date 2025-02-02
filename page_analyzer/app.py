@@ -45,7 +45,7 @@ def show_url(url_id):
         return render_template('url.html', url=url)
     return redirect(url_for('list_urls'))
 
-@app.route('/urls', methods=['GET'])
+@app.route('/urls')
 def list_urls():
     with psycopg2.connect(DATABASE_URL) as conn:
         with conn.cursor() as cur:
