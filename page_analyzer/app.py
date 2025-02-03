@@ -5,6 +5,7 @@ from datetime import datetime
 from flask import Flask, render_template, redirect, request, flash, url_for
 from dotenv import load_dotenv
 from urllib.parse import urlparse
+from bs4 import BeautifulSoup
 
 
 load_dotenv()
@@ -28,12 +29,17 @@ def add_url():
         with conn.cursor() as cur:
             try:
                 created_at = datetime.now().strftime('%Y-%m-%d')
-                cur.execute('INSERT INTO urls (name, created_at) VALUES (%s, %s) RETURNING id;', (normalized_url, created_at))
+                cur.execute(
+                    'INSERT INTO urls (name, created_at) VALUES (%s, %s) RETURNING id;',
+                    (normalized_url, created_at)
+                )
                 id = cur.fetchone()[0]
                 conn.commit()
-                flash('Страница успешно добавлена')
+                flash('Страница успешно добавлена', 'success')
             except psycopg2.errors.UniqueViolation:
-                flash('Страница уже существует')
+                cur.execute('SELECT id FROM urls WHERE name = %s;', (normalized_url,))
+                id = cur.fetchone()[0]
+                flash('Страница уже существует', 'error')
     return redirect(url_for('show_url', id=id))
 
 @app.route('/urls/<int:id>')
@@ -42,15 +48,26 @@ def show_url(id):
         with conn.cursor() as cur:
             cur.execute('SELECT id, name, created_at FROM urls WHERE id = %s;', (id,))
             url = cur.fetchone()
+            cur.execute(
+                'SELECT id, status_code, created_at FROM url_checks WHERE url_id = %s ORDER BY created_at DESC;',
+                (id,)
+            )
+            checks = cur.fetchall()
     if url:
-        return render_template('url.html', url=url)
+        return render_template('url.html', url=url, checks=checks)
     return redirect(url_for('list_urls'))
 
 @app.route('/urls')
 def list_urls():
     with psycopg2.connect(DATABASE_URL) as conn:
         with conn.cursor() as cur:
-            cur.execute('SELECT urls.id, urls.name, MAX(url_checks.created_at), url_checks.status_code  FROM urls LEFT JOIN url_checks ON urls.id = url_checks.url_id;')
+            cur.execute("""
+                SELECT urls.id, urls.name, MAX(url_checks.created_at), url_checks.status_code
+                FROM urls 
+                LEFT JOIN url_checks ON urls.id = url_checks.url_id
+                GROUP BY urls.id
+                ORDER BY urls.id DESC;
+            """)
             urls = cur.fetchall()
     return render_template('urls.html', urls=urls)
 
@@ -58,11 +75,33 @@ def list_urls():
 @app.route('/urls/<int:id>/checks', methods=['POST'])
 def check_url(id):
     with psycopg2.connect(DATABASE_URL) as conn:
-         with conn.cursor() as cur:
-             created_at = datetime.now().strftime('%Y-%m-%d')
-             cur.execute('INSERT INTO url_checks (url_id, created_at) VALUES (%s, %s) RETURNING id;', (id, created_at))
-             conn.commit()
-             flash('')
+        with conn.cursor() as cur:
+            created_at = datetime.now().strftime('%Y-%m-%d')  
+            cur.execute('SELECT name FROM urls WHERE id = %s;', (id,))
+            url = cur.fetchone()[0]
+
+    try:
+        responce = request.get(url, timeout=1)
+        responce.raise_for_status()
+        status_code = responce.status_code
+    except request.exceptions.RequestException:
+        flash('Произошла ошибка при проверке', 'error')
+        return redirect(url_for('show_url', id=id))
+    
+    soup = BeautifulSoup(responce.text, 'html.parser')
+    h1 =  soup.h1.text
+    title = soup.title.text
+    description_tag = soup.find('meta', {'name': 'description'})
+    description = description_tag['content'] if description_tag else None
+
+    with psycopg2.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                'INSERT INTO url_checks (url_id, status_code, h1, title, description, created_at) VALUES (%s, %s, %s, %s, %s, %s);',
+                (id, status_code, h1, title, description, created_at)
+            )
+            conn.commit()
+            flash('Страница успешно проверена', 'success')
     return redirect(url_for('show_url'), id=id)
 
 
