@@ -43,8 +43,8 @@
           <tr>
             <td>{{ id }}</td>
             <td><a href="{{ url_for('show_url', id=id) }}">{{ name }}</a></td>
-            <td>{{ created_at }}</td>
-            <td>{{ status_code }}</td>
+            <td>{{ created_at or '' }}</td>
+            <td>{{ status_code or '' }}</td>
           </tr>
           {% endfor %}
         </tbody>

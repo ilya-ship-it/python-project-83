@@ -22,7 +22,7 @@ def index():
 def add_url():
     url = request.form.get('url')
     if not validators.url(url):
-        return 'Некорректный URL', 422
+        return 'Некорректный URL', 422  #нужено чтобы флеш был
     parsed_url = urlparse(url)
     normalized_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
     with psycopg2.connect(DATABASE_URL) as conn:
@@ -62,10 +62,14 @@ def list_urls():
     with psycopg2.connect(DATABASE_URL) as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT urls.id, urls.name, MAX(url_checks.created_at), url_checks.status_code
-                FROM urls 
-                LEFT JOIN url_checks ON urls.id = url_checks.url_id
-                GROUP BY urls.id
+                SELECT urls.id, urls.name, url_checks.created_at, url_checks.status_code
+                FROM urls
+                LEFT JOIN url_checks ON url_checks.id = (
+                    SELECT id FROM url_checks 
+                    WHERE url_checks.url_id = urls.id 
+                    ORDER BY created_at DESC 
+                    LIMIT 1
+                )
                 ORDER BY urls.id DESC;
             """)
             urls = cur.fetchall()
