@@ -1,6 +1,7 @@
 import os
 import validators
 import psycopg2
+import requests
 from datetime import datetime
 from flask import Flask, render_template, redirect, request, flash, url_for
 from dotenv import load_dotenv
@@ -85,10 +86,10 @@ def check_url(id):
             url = cur.fetchone()[0]
 
     try:
-        responce = request.get(url, timeout=1)
+        responce = requests.get(url, timeout=1)
         responce.raise_for_status()
         status_code = responce.status_code
-    except request.exceptions.RequestException:
+    except requests.exceptions.RequestException:
         flash('Произошла ошибка при проверке', 'error')
         return redirect(url_for('show_url', id=id))
     
