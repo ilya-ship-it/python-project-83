@@ -80,7 +80,7 @@ def get_all_urls(conn):
                 ORDER BY created_at DESC
                 LIMIT 1
             )
-            ORDER BY urls.id DESC;
+            ORDER BY u.id DESC;
         """)
         return cur.fetchall()
 
