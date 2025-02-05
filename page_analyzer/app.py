@@ -14,9 +14,11 @@ load_dotenv()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
+
 @app.route('/')
 def index():
     return render_template('index.html')
+
 
 @app.route('/urls', methods=['POST'])
 def add_url():
@@ -38,6 +40,7 @@ def add_url():
     conn.close()
     return redirect(url_for('show_url', id=id))
 
+
 @app.route('/urls/<int:id>')
 def show_url(id):
     conn = db.get_connection()
@@ -47,6 +50,7 @@ def show_url(id):
     if url:
         return render_template('url.html', url=url, checks=checks)
     return redirect(url_for('list_urls'))
+
 
 @app.route('/urls')
 def list_urls():
@@ -67,15 +71,19 @@ def check_url(id):
     except requests.exceptions.RequestException:
         flash('Произошла ошибка при проверке', 'danger')
         return redirect(url_for('show_url', id=id))
-    
+
     soup = BeautifulSoup(responce.text, 'html.parser')
-    h1 =  soup.find('h1').text if soup.find('h1') else None
+    h1 = soup.find('h1').text if soup.find('h1') else None
     title = soup.find('title').text if soup.find('title') else None
     description_tag = soup.find('meta', {'name': 'description'})
-    if description_tag:
-        description = description_tag['content'] if description_tag['content'] else None
+    description = description_tag.get('content') if description_tag else None
 
-    check = db.URLCheck(url_id=id, status_code=status_code, h1=h1, title=title, description=description)
+    check = db.URLCheck(
+        url_id=id,
+        status_code=status_code,
+        h1=h1, title=title,
+        description=description
+    )
     db.add_check(conn, check)
     db.commit(conn)
     conn.close()
