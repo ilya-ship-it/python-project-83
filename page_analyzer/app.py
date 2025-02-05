@@ -25,7 +25,7 @@ def add_url():
     url = request.form.get('url')
     if not validators.url(url):
         flash('Некорректный URL', 'danger')
-        return render_template('index.html')
+        return render_template('index.html'), 422
     parsed_url = urlparse(url)
     normalized_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
     conn = db.get_connection()
