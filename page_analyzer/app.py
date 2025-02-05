@@ -2,7 +2,7 @@ import os
 import validators
 import psycopg2
 import requests
-from datetime import datetime
+import db
 from flask import Flask, render_template, redirect, request, flash, url_for
 from dotenv import load_dotenv
 from urllib.parse import urlparse
@@ -13,7 +13,6 @@ load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
-DATABASE_URL = os.getenv('DATABASE_URL')
 
 @app.route('/')
 def index():
@@ -23,70 +22,46 @@ def index():
 def add_url():
     url = request.form.get('url')
     if not validators.url(url):
-        return 'Некорректный URL', 422  #нужено чтобы флеш был
+        flash('Некорректный URL', 'danger')
+        return render_template('index.html')
     parsed_url = urlparse(url)
     normalized_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
-    with psycopg2.connect(DATABASE_URL) as conn:
-        with conn.cursor() as cur:
-            try:
-                created_at = datetime.now().strftime('%Y-%m-%d')
-                cur.execute(
-                    'INSERT INTO urls (name, created_at) VALUES (%s, %s) RETURNING id;',
-                    (normalized_url, created_at)
-                )
-                id = cur.fetchone()[0]
-                conn.commit()
-                flash('Страница успешно добавлена', 'success')
-            except psycopg2.errors.UniqueViolation:
-                cur.execute('SELECT id FROM urls WHERE name = %s;', (normalized_url,))
-                id = cur.fetchone()[0]
-                flash('Страница уже существует', 'error')
+    conn = db.get_connection()
+    try:
+        id = db.add_url(conn, normalized_url)
+        db.commit(conn)
+        flash('Страница успешно добавлена', 'success')
+    except psycopg2.errors.UniqueViolation:
+        url = db.get_url_by_name(conn, normalized_url)
+        id = url.id
+        flash('Страница уже существует', 'danger')
+    conn.close()
     return redirect(url_for('show_url', id=id))
 
 @app.route('/urls/<int:id>')
 def show_url(id):
-    with psycopg2.connect(DATABASE_URL) as conn:
-        with conn.cursor() as cur:
-            cur.execute('SELECT id, name, created_at FROM urls WHERE id = %s;', (id,))
-            url = cur.fetchone()
-            cur.execute(
-                'SELECT id, status_code, created_at FROM url_checks WHERE url_id = %s ORDER BY created_at DESC;',
-                (id,)
-            )
-            checks = cur.fetchall()
+    conn = db.get_connection()
+    url = db.get_url(conn, id)
+    checks = db.get_checks(conn, id)
+    conn.close()
     if url:
         return render_template('url.html', url=url, checks=checks)
     return redirect(url_for('list_urls'))
 
 @app.route('/urls')
 def list_urls():
-    with psycopg2.connect(DATABASE_URL) as conn:
-        with conn.cursor() as cur:
-            cur.execute("""
-                SELECT urls.id, urls.name, url_checks.created_at, url_checks.status_code
-                FROM urls
-                LEFT JOIN url_checks ON url_checks.id = (
-                    SELECT id FROM url_checks 
-                    WHERE url_checks.url_id = urls.id 
-                    ORDER BY created_at DESC 
-                    LIMIT 1
-                )
-                ORDER BY urls.id DESC;
-            """)
-            urls = cur.fetchall()
+    conn = db.get_connection()
+    urls = db.get_all_urls(conn)
+    conn.close()
     return render_template('urls.html', urls=urls)
 
 
 @app.route('/urls/<int:id>/checks', methods=['POST'])
 def check_url(id):
-    with psycopg2.connect(DATABASE_URL) as conn:
-        with conn.cursor() as cur:
-            created_at = datetime.now().strftime('%Y-%m-%d')  
-            cur.execute('SELECT name FROM urls WHERE id = %s;', (id,))
-            url = cur.fetchone()[0]
-
+    conn = db.get_connection()
+    url = db.get_url(conn, id)
     try:
-        responce = requests.get(url, timeout=1)
+        responce = requests.get(url.name, timeout=2)
         responce.raise_for_status()
         status_code = responce.status_code
     except requests.exceptions.RequestException:
@@ -94,20 +69,18 @@ def check_url(id):
         return redirect(url_for('show_url', id=id))
     
     soup = BeautifulSoup(responce.text, 'html.parser')
-    h1 =  soup.h1.text
-    title = soup.title.text
+    h1 =  soup.find('h1').text if soup.find('h1') else None
+    title = soup.find('title').text if soup.find('title') else None
     description_tag = soup.find('meta', {'name': 'description'})
-    description = description_tag['content'] if description_tag else None
+    if description_tag:
+        description = description_tag['content'] if description_tag['content'] else None
 
-    with psycopg2.connect(DATABASE_URL) as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                'INSERT INTO url_checks (url_id, status_code, h1, title, description, created_at) VALUES (%s, %s, %s, %s, %s, %s);',
-                (id, status_code, h1, title, description, created_at)
-            )
-            conn.commit()
-            flash('Страница успешно проверена', 'success')
-    return redirect(url_for('show_url'), id=id)
+    check = db.URLCheck(url_id=id, status_code=status_code, h1=h1, title=title, description=description)
+    db.add_check(conn, check)
+    db.commit(conn)
+    conn.close()
+    flash('Страница успешно проверена', 'success')
+    return redirect(url_for('show_url', id=id))
 
 
 if __name__ == '__main__':
