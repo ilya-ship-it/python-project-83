@@ -65,7 +65,7 @@ def check_url(id):
         responce.raise_for_status()
         status_code = responce.status_code
     except requests.exceptions.RequestException:
-        flash('Произошла ошибка при проверке', 'error')
+        flash('Произошла ошибка при проверке', 'danger')
         return redirect(url_for('show_url', id=id))
     
     soup = BeautifulSoup(responce.text, 'html.parser')
