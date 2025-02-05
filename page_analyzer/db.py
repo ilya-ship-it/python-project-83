@@ -10,12 +10,14 @@ load_dotenv()
 
 DATABASE_URL = os.getenv('DATABASE_URL')
 
+
 @dataclass
 class URL:
     name: str
     created_at: Optional[str]
     id: Optional[int] = None
-    
+
+
 @dataclass
 class URLCheck:
     status_code: int
@@ -25,8 +27,6 @@ class URLCheck:
     created_at: Optional[str] = None
     id: Optional[int] = None
     url_id: Optional[int] = None
-    
-
 
 
 def get_connection():
@@ -36,13 +36,14 @@ def get_connection():
     )
     return conn
 
+
 def commit(conn):
     conn.commit()
 
 
 def add_url(conn, name):
     with conn.cursor() as cur:
-        created_at = datetime.now().strftime('%Y-%m-%d')  
+        created_at = datetime.now().strftime('%Y-%m-%d')
         cur.execute(
             'INSERT INTO urls (name, created_at) VALUES (%s, %s) RETURNING id;',
             (name, created_at)
@@ -71,12 +72,12 @@ def get_url(conn, id):
 def get_all_urls(conn):
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT urls.id, urls.name, url_checks.created_at, url_checks.status_code
-            FROM urls
+            SELECT u.id, u.name, url_checks.created_at, url_checks.status_code
+            FROM urls AS u
             LEFT JOIN url_checks ON url_checks.id = (
-                SELECT id FROM url_checks 
-                WHERE url_checks.url_id = urls.id 
-                ORDER BY created_at DESC 
+                SELECT id FROM url_checks
+                WHERE url_checks.url_id = u.id
+                ORDER BY created_at DESC
                 LIMIT 1
             )
             ORDER BY urls.id DESC;
@@ -87,18 +88,28 @@ def get_all_urls(conn):
 def add_check(conn, check):
     with conn.cursor() as cur:
         created_at = datetime.now().strftime('%Y-%m-%d')
-        cur.execute(
-            'INSERT INTO url_checks (url_id, status_code, h1, title, description, created_at) '
-            'VALUES (%s, %s, %s, %s, %s, %s);',
-            (check.url_id, check.status_code, check.h1, check.title, check.description, created_at)
+        cur.execute("""
+            INSERT INTO url_checks
+            (url_id, status_code, h1, title, description, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s);
+        """, (
+            check.url_id,
+            check.status_code,
+            check.h1,
+            check.title,
+            check.description,
+            created_at
+        )
         )
 
 
 def get_checks(conn, url_id):
     with conn.cursor() as cur:
-        cur.execute(
-            'SELECT id, status_code, h1, title, description, created_at FROM url_checks WHERE url_id = %s ORDER BY created_at DESC;',
-            (url_id,)
+        cur.execute("""
+            SELECT id, status_code, h1, title, description, created_at
+            FROM url_checks WHERE url_id = %s
+            ORDER BY created_at DESC;
+        """, (url_id,)
         )
         checks = [URLCheck(**row) for row in cur.fetchall()]
         return checks
