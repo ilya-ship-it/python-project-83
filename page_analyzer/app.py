@@ -74,10 +74,10 @@ def check_url(id):
         return redirect(url_for('show_url', id=id))
 
     soup = BeautifulSoup(responce.text, 'html.parser')
-    h1 = soup.find('h1').text if soup.find('h1') else None
-    title = soup.find('title').text if soup.find('title') else None
+    h1 = soup.find('h1').text[:255] if soup.find('h1') else None
+    title = soup.find('title').text[:255] if soup.find('title') else None
     description_tag = soup.find('meta', {'name': 'description'})
-    description = description_tag.get('content') if description_tag else None
+    description = description_tag.get('content')[:255] if description_tag else None
 
     check = db.URLCheck(
         url_id=id,
