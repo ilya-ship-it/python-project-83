@@ -70,6 +70,7 @@ def check_url(id):
         responce.raise_for_status()
         status_code = responce.status_code
     except requests.exceptions.RequestException:
+        conn.close()
         flash('Произошла ошибка при проверке', 'danger')
         return redirect(url_for('show_url', id=id))
 
@@ -82,7 +83,8 @@ def check_url(id):
     check = db.URLCheck(
         url_id=id,
         status_code=status_code,
-        h1=h1, title=title,
+        h1=h1,
+        title=title,
         description=description
     )
     db.add_check(conn, check)
