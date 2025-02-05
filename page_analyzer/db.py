@@ -53,7 +53,7 @@ def add_url(conn, name):
 
 def get_url_by_name(conn, name):
     with conn.cursor() as cur:
-        cur.execute('SELECT id FROM urls WHERE name = %s;', (name,))
+        cur.execute('SELECT * FROM urls WHERE name = %s;', (name,))
         row = cur.fetchone()
         if row:
             return URL(**row)

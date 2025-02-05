@@ -2,11 +2,11 @@ import os
 import validators
 import psycopg2
 import requests
-import db
 from flask import Flask, render_template, redirect, request, flash, url_for
 from dotenv import load_dotenv
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
+from . import db
 
 
 load_dotenv()
@@ -34,9 +34,10 @@ def add_url():
         db.commit(conn)
         flash('Страница успешно добавлена', 'success')
     except psycopg2.errors.UniqueViolation:
+        conn.rollback()
         url = db.get_url_by_name(conn, normalized_url)
         id = url.id
-        flash('Страница уже существует', 'danger')
+        flash('Страница уже существует', 'info')
     conn.close()
     return redirect(url_for('show_url', id=id))
 
