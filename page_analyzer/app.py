@@ -2,11 +2,11 @@ import os
 import validators
 import psycopg2
 import requests
+import page_analyzer.db as db
 from flask import Flask, render_template, redirect, request, flash, url_for
 from dotenv import load_dotenv
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
-from . import db
 
 
 load_dotenv()
@@ -76,8 +76,8 @@ def check_url(id):
     soup = BeautifulSoup(responce.text, 'html.parser')
     h1 = soup.find('h1').text[:255] if soup.find('h1') else None
     title = soup.find('title').text[:255] if soup.find('title') else None
-    description_tag = soup.find('meta', {'name': 'description'})
-    description = description_tag.get('content')[:255] if description_tag else None
+    meta_tag = soup.find('meta', {'name': 'description'})
+    description = meta_tag.get('content')[:255] if meta_tag else None
 
     check = db.URLCheck(
         url_id=id,
